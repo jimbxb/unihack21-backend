@@ -10,14 +10,15 @@ import (
 	"log"
 	"mime/multipart"
 	"net/http"
-	"pkg/mod/github.com/google/uuid@v1.1.2"
 	"reflect"
+	"strconv"
 )
 
-var ModelMap map[uuid.UUID]ModelMetaData
-var HostMap map[uuid.UUID]HostMetaData
-var Hosts []HostMetaData
+var ModelMap = make(map[int32]ModelMetaData, 1)
+var HostMap = make(map[int32]HostMetaData, 1)
+var Hosts = make ([]HostMetaData, 1)
 
+var ModelCounter int32 = 0
 
 
 type ModelFeatures struct {
@@ -27,7 +28,7 @@ type ModelFeatures struct {
 }
 
 type ModelMetaData struct {
-	ID      uuid.UUID `json:"id"`
+	ID     int32 `json:"id"`
 	Name  string `json:"name"`
 	Desc     string `json:"description"`
 	InputFeatures ModelFeatures `json:"input_features"`
@@ -44,15 +45,17 @@ func createModelHandler(w http.ResponseWriter, r *http.Request) {
 	var model ModelMetaData
 	_ = json.Unmarshal(reqBody, &model)
 
-	model.ID = uuid.New()
+	model.ID = ModelCounter
+	ModelCounter+=1
 	ModelMap[model.ID] = model
 	_ = json.NewEncoder(w).Encode(model.ID)
 }
 
-func getRequestID(r *http.Request) uuid.UUID {
+func getRequestID(r *http.Request) int32 {
 	vars := mux.Vars(r)
-	id, _ :=  uuid.Parse(vars["id"])
-	return id
+	id, _ :=  strconv.Atoi(vars["id"])
+	numId := int32(id)
+	return numId
 }
 
 func getNextHost() HostMetaData {
@@ -74,7 +77,6 @@ func uploadModelHandler(w http.ResponseWriter, r *http.Request) {
 	client.Do(req)
 }
 
-
 func forwardModel(data *ModelMetaData, r *http.Request) (*http.Request, error) {
 	r.ParseMultipartForm(10 << 20)
 	_, header, err :=  r.FormFile("model")
@@ -91,7 +93,7 @@ func forwardModel(data *ModelMetaData, r *http.Request) (*http.Request, error) {
 	}
 	io.Copy(part, file)
 
-	v := reflect.ValueOf(data)
+	v := reflect.ValueOf(*data)
 	typeOfData := v.Type()
 
 	for i := 0; i < v.NumField(); i++ {
@@ -120,7 +122,6 @@ func handleRequests() {
 	router.HandleFunc("/eval/{id}", evalModelHandler).Methods("POST")
 	log.Fatal(http.ListenAndServe(":8080", router))
 }
-
 
 func makeInit(){
 }
