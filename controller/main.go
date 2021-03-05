@@ -1,19 +1,24 @@
 package main
 
 import (
-	"fmt"
-	"log"
-	"net"
-	"net/http"
+	"bytes"
 	"encoding/json"
+	"fmt"
 	"github.com/gorilla/mux"
+	"io"
 	"io/ioutil"
+	"log"
+	"mime/multipart"
+	"net/http"
 	"pkg/mod/github.com/google/uuid@v1.1.2"
+	"reflect"
 )
 
 var ModelMap map[uuid.UUID]ModelMetaData
 var HostMap map[uuid.UUID]HostMetaData
 var Hosts []HostMetaData
+
+
 
 type ModelFeatures struct {
 	Name string `json:"name"`
@@ -30,7 +35,7 @@ type ModelMetaData struct {
 }
 
 type HostMetaData struct {
-	IP net.IPAddr `json:"serverId"`
+	BFS string `json:"serverId"`
 	ModelCount int32 `json:"modelCount"`
 }
 
@@ -44,7 +49,60 @@ func createModelHandler(w http.ResponseWriter, r *http.Request) {
 	_ = json.NewEncoder(w).Encode(model.ID)
 }
 
+func getRequestID(r *http.Request) uuid.UUID {
+	vars := mux.Vars(r)
+	id, _ :=  uuid.Parse(vars["id"])
+	return id
+}
+
+func getNextHost() HostMetaData {
+	res := Hosts[0]
+	for _, host := range Hosts {
+		if host.ModelCount < res.ModelCount {
+			res = host
+		}
+	}
+	return res
+}
+
 func uploadModelHandler(w http.ResponseWriter, r *http.Request) {
+	reqId := getRequestID(r)
+	data := ModelMap[reqId]
+
+	req, _ := forwardModel(&data, r)
+	client := &http.Client{}
+	client.Do(req)
+}
+
+
+func forwardModel(data *ModelMetaData, r *http.Request) (*http.Request, error) {
+	r.ParseMultipartForm(10 << 20)
+	_, header, err :=  r.FormFile("model")
+	if err != nil {
+		return nil, err
+	}
+	file, _ := header.Open()
+	defer file.Close()
+	body := new(bytes.Buffer)
+	writer := multipart.NewWriter(body)
+	part, err := writer.CreateFormFile("model", header.Filename)
+	if err != nil {
+		return nil, err
+	}
+	io.Copy(part, file)
+
+	v := reflect.ValueOf(data)
+	typeOfData := v.Type()
+
+	for i := 0; i < v.NumField(); i++ {
+		writer.WriteField(typeOfData.Field(i).Name, fmt.Sprint(v.Field(i).Interface()))
+	}
+
+	err = writer.Close()
+	if err != nil {
+		return nil, err
+	}
+	return http.NewRequest("POST", fmt.Sprintf(getNextHost().BFS + "/model"), body)
 }
 
 func getModelsHandler(w http.ResponseWriter, r *http.Request) {
