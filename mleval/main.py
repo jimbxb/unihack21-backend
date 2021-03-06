@@ -152,4 +152,4 @@ if __name__ == "__main__":
     # out = model.predict({"doc_text": ["football"]})
     # print(out)
     load_models()
-    app.run(host='localhost', port=8000)
+    app.run(host='0.0.0.0', port=3000)
