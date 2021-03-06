@@ -12,7 +12,9 @@ from sanic import Sanic
 from sanic.response import json
 
 app = Sanic(name="COMPUTE_WORKER")
-app.config.REQUEST_MAX_SIZE = 2147483648 - 1
+app.config.REQUEST_MAX_SIZE = 1 << 31 -1
+app.config.REQUEST_TIMEOUT = 1 << 31 -1
+
 models = {}
 
 def zipdir(basedir, archivename):
@@ -32,16 +34,23 @@ def save_to_zip(input_filename, output_filename:str):
 async def load(request, key):
     model = request.files.get('model')
     if not model:
+        print("cant get model")
         return json({'status': 400, 'msg': "model not present"}, status=400)
     
+
     metadata = request.files.get('metadata')
 
+
+
     if not metadata:
+        print("cant get metadata")
         return json({'status': 400, 'msg': 'metadata not present'}, status=400)
     
     io_params = request.files.get('io_params')
 
+
     if not io_params:
+        print("cant get io_params")
         return json({'status': 400, 'msg': "io_params not present"},status=400)
     
     try:

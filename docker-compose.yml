@@ -26,3 +26,12 @@ services:
       - nginx-proxy
       - watchtower
 
+  worker:
+    container_name: worker
+    image: kvoli/scalrio-worker:latest
+    ports:
+      - "3000:3000"
+    restart: always
+    depends_on:
+      - watchtower
+
