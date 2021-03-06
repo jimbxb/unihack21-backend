@@ -1,7 +1,9 @@
 import os
 import tempfile
 import re
+import shutil
 import pandas as pd
+import tempfile
 import json as stdjson
 from ludwig import api
 from sanic import Sanic
@@ -11,7 +13,8 @@ app = Sanic(name="COMPUTE_WORKER")
 
 models = {}
 
-
+def save_to_zip(input_filename, output_filename:str):
+    shutil.make_archive(output_filename, 'zip', input_filename)
 
 @app.post('/load/<key>')
 async def load(request, key):
@@ -77,6 +80,10 @@ async def train(request, key):
     with open(f"./models/{key}/io_params.json", "wb") as fio:
         fio.write(bio_params.body)
     
+    directory = tempfile.TemporaryDirectory()
+    
+    save_to_zip(f"./models/{key}", f"./{directory.name}/out")
+
     return json({'status': 200, 'msg': "DONE"})
 
 def load_model(path: str, key:str):
@@ -131,12 +138,9 @@ async def eval(request, key):
 def get_latest_model(path: str):
     files = os.listdir(path)
     files.sort() # get the latest this way
-    pattern = re.compile(".*_[0-9]")
     best_match = None
     for file in files:
-        match = pattern.match(file)
-        if match:
-            best_match = file
+        best_match = file
     return f"{path}/{best_match}/model"
 
     
