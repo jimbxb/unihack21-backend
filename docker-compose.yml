@@ -6,7 +6,6 @@ services:
       - "80:80"
     volumes:
       - "/var/run/docker.sock:/tmp/docker.sock:ro"
-      - "/etc/nginx/vhost.d:/etc/nginx/vhost.d"
 
   watchtower:
     container_name: watchtower
@@ -17,7 +16,7 @@ services:
 
   controller:
     container_name: controller
-    image: kvoli/scalario-controller:latest
+    image: kvoli/scalrio-controller:latest
     env_file:
       - controller.env
     ports:
