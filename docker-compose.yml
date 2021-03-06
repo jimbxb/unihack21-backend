@@ -6,6 +6,7 @@ services:
       - "80:80"
     volumes:
       - "/var/run/docker.sock:/tmp/docker.sock:ro"
+      - "/etc/nginx/vhost.d:/etc/nginx/vhost.d"
 
   watchtower:
     container_name: watchtower

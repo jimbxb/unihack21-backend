@@ -173,16 +173,14 @@ func evalModelHandler(w http.ResponseWriter, r *http.Request) {
 		})
 	}
 }
-
-
-func trainModelHandler() {
+func trainModelHandler(w http.ResponseWriter, r *http.Request) {
 
 }
 
 func handleRequests() {
 	c := cors.New(cors.Options{
 		AllowedOrigins: []string{"*"}, // All origins
-		AllowedMethods: []string{"GET,POST"}, // Allowing only get, just an example
+		AllowedMethods: []string{"GET,POST,OPTION"}, // Allowing only get, just an example
 	})
 
 	router := mux.NewRouter().StrictSlash(true)
@@ -190,7 +188,7 @@ func handleRequests() {
 	router.HandleFunc("/model", createModelHandler).Methods("POST")
 	router.HandleFunc("/model/{id}", uploadModelHandler).Methods("POST")
 	router.HandleFunc("/eval/{id}", evalModelHandler).Methods("POST")
-	router.HandleFunc("/train/{id}", evalModelHandler).Methods("POST")
+	router.HandleFunc("/train/{id}", trainModelHandler).Methods("POST")
 	log.Fatal(http.ListenAndServe(":5000", c.Handler(router)))
 }
 
