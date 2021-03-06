@@ -141,7 +141,7 @@ func handleRequests() {
 	router.HandleFunc("/model", createModelHandler).Methods("POST")
 	router.HandleFunc("/model/{id}", uploadModelHandler).Methods("POST")
 	router.HandleFunc("/eval/{id}", evalModelHandler).Methods("POST")
-	log.Fatal(http.ListenAndServe(":8080", router))
+	log.Fatal(http.ListenAndServe(":5000", router))
 }
 
 func makeInit(){
@@ -160,9 +160,8 @@ func makeInit(){
 	}
 }
 
-
 func main() {
-	fmt.Println("listening on port 8080")
+	fmt.Println("listening on port 5000")
 	makeInit()
 	handleRequests()
 }
