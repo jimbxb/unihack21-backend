@@ -46,7 +46,7 @@ type ModelMetaData struct {
 	ID             int32         `json:"id"`
 	Name           string        `json:"name"`
 	Desc           string        `json:"description"`
-	IOParams       IOParams `json:"io_params"`
+	IOParams       IOParams      `json:"io_params"`
 }
 
 type HostMetaData struct {
@@ -244,7 +244,7 @@ func evalModelHandler(w http.ResponseWriter, r *http.Request) {
 	}
 }
 func trainModelHandler(w http.ResponseWriter, r *http.Request) {
-
+	w.WriteHeader(http.StatusAccepted)
 }
 
 func onFinished(w http.ResponseWriter, r *http.Request) {
@@ -267,7 +267,7 @@ func handleRequests() {
 	router.HandleFunc("/model", createModelHandler).Methods("POST")
 	router.HandleFunc("/model/{id}", uploadModelHandler).Methods("POST")
 	router.HandleFunc("/eval/{id}", evalModelHandler).Methods("POST")
-	router.HandleFunc("/train/{id}", trainModelHandler).Methods("POST")
+	router.HandleFunc("/train", trainModelHandler).Methods("POST")
 	handler := cors.AllowAll().Handler(router)
 	log.Fatal(http.ListenAndServe(":5000", handler))
 }
