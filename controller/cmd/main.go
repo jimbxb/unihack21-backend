@@ -58,35 +58,11 @@ type NotifyDone struct {
 	ID int32 `json:"id"`
 }
 
-func fileUploadHandler(w http.ResponseWriter, r *http.Request) {
-	r.ParseMultipartForm(10 << 20)
-	file, header, err := r.FormFile("file")
-	if err != nil {
-		log.Println("Error Getting File", err)
-		return
-	}
-	defer file.Close()
-
-	out, pathError := ioutil.TempFile("temp-images", "upload-*.png")
-	if pathError != nil {
-		log.Println("Error Creating a file for writing", pathError)
-		return
-	}
-	defer out.Close()
-
-	_, copyError := io.Copy(out, file)
-	if copyError != nil {
-		log.Println("Error copying", copyError)
-	}
-	fmt.Fprintln(w, "File Uploaded Successfully! ")
-	fmt.Fprintln(w, "Name of the File: ", header.Filename)
-	fmt.Fprintln(w, "Size of the File: ", header.Size)
-}
 
 func createModelHandler(w http.ResponseWriter, r *http.Request) {
-	reqBody, _ := ioutil.ReadAll(r.Body)
 	var model ModelMetaData
-	_ = json.Unmarshal(reqBody, &model)
+
+
 
 	model.ID = ModelCounter
 	ModelCounter++
@@ -118,11 +94,7 @@ func getNextHost() (*HostMetaData, error) {
 }
 
 func uploadModelHandler(w http.ResponseWriter, r *http.Request) {
-	reqId := getRequestID(r)
-	data := ModelMap[reqId]
-
-
-	req, err := forwardModel(&data, r)
+	req, data, err := forwardModel(r)
 
 	// check format
 
@@ -135,8 +107,6 @@ func uploadModelHandler(w http.ResponseWriter, r *http.Request) {
 		log.Printf("error sending request: %v\n", err)
 		return
 	}
-
-
 
 	client := &http.Client{}
 	ret, err := client.Do(req)
@@ -158,7 +128,7 @@ func uploadModelHandler(w http.ResponseWriter, r *http.Request) {
 
 	if err == nil {
 		w.WriteHeader(http.StatusAccepted)
-		json.NewEncoder(w).Encode(string(res))
+		json.NewEncoder(w).Encode(data.ID)
 	} else {
 		w.WriteHeader(http.StatusNotFound)
 		json.NewEncoder(w).Encode(HostNotFound{
@@ -186,13 +156,13 @@ func assignModelHost(data *ModelMetaData) (string, error){
 }
 
 
-func forwardModel(data *ModelMetaData, r *http.Request) (*http.Request, error) {
+func forwardModel(r *http.Request) (*http.Request, *ModelMetaData, error) {
 	_ = r.ParseMultipartForm(1<<31 - 1)
 
 	// get the file out of the request
 	file, header, err := r.FormFile("model")
 	if err != nil {
-		return nil, err
+		return nil, nil, err
 	}
 	defer file.Close()
 
@@ -203,10 +173,20 @@ func forwardModel(data *ModelMetaData, r *http.Request) (*http.Request, error) {
 	// create the model part
 	part, err := writer.CreateFormFile("model", header.Filename)
 	if err != nil {
-		return nil, err
+		return nil, nil, err
 	}
 	_, _ = io.Copy(part, file)
 	log.Printf("wrote file into part\n")
+
+	name := r.FormValue("name")
+
+	data := ModelMetaData{
+		ID:       ModelCounter,
+		Name:     name,
+		Desc:     "A very useful model in training!",
+	}
+	ModelCounter++
+	ModelMap[data.ID] = data
 
 	// create the metadata part
 	part, err = writer.CreateFormFile("metadata", "metadata.json")
@@ -226,18 +206,18 @@ func forwardModel(data *ModelMetaData, r *http.Request) (*http.Request, error) {
 
 	err = writer.Close()
 	if err != nil {
-		return nil, err
+		return nil, nil, err
 	}
 
-	hosturl, err := assignModelHost(data)
+	hosturl, err := assignModelHost(&data)
 	if err != nil {
-		return nil, err
+		return nil, nil, err
 	}
 	uri := fmt.Sprintf("%s/load/%d", hosturl, data.ID)
 	Status[data.ID] = false
 	request, _ := http.NewRequest("POST", uri, body)
 	request.Header.Set("Content-Type", writer.FormDataContentType())
-	return request, nil
+	return request, &data, nil
 }
 
 func getModelsHandler(w http.ResponseWriter, r *http.Request) {
@@ -374,8 +354,7 @@ func getNodesHandler(w http.ResponseWriter, r *http.Request) {
 func handleRequests() {
 	router := mux.NewRouter().StrictSlash(true)
 	router.HandleFunc("/model", getModelsHandler).Methods("GET")
-	router.HandleFunc("/model", createModelHandler).Methods("POST")
-	router.HandleFunc("/model/{id}", uploadModelHandler).Methods("POST")
+	router.HandleFunc("/model", uploadModelHandler).Methods("POST")
 	router.HandleFunc("/eval/{id}", evalModelHandler).Methods("POST")
 	router.HandleFunc("/train", trainModelHandler).Methods("POST")
 	router.HandleFunc("/nodes", getNodesHandler).Methods("GET")
