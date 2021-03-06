@@ -8,15 +8,18 @@ import (
 	"io"
 	"io/ioutil"
 	"log"
+	"math"
 	"mime/multipart"
 	"net/http"
+	"os"
 	"reflect"
 	"strconv"
+	"strings"
 )
 
 var ModelMap = make(map[int32]ModelMetaData, 1)
-var HostMap = make(map[int32]HostMetaData, 1)
-var Hosts = make ([]HostMetaData, 1)
+var HostMap = make(map[int32]*HostMetaData, 1)
+var Hosts = make ([]*HostMetaData, 0)
 
 var ModelCounter int32 = 0
 
@@ -58,11 +61,13 @@ func getRequestID(r *http.Request) int32 {
 	return numId
 }
 
-func getNextHost() HostMetaData {
-	res := Hosts[0]
+func getNextHost() *HostMetaData {
+	best := int32(math.MaxInt32)
+	var res *HostMetaData
 	for _, host := range Hosts {
-		if host.ModelCount < res.ModelCount {
+		if host.ModelCount < best{
 			res = host
+			best = host.ModelCount
 		}
 	}
 	return res
@@ -76,6 +81,15 @@ func uploadModelHandler(w http.ResponseWriter, r *http.Request) {
 	client := &http.Client{}
 	client.Do(req)
 	json.NewEncoder(w).Encode(data)
+}
+
+
+func assignModelHost(data *ModelMetaData) string {
+	host := getNextHost()
+	HostMap[data.ID] = host
+	host.ModelCount += 1
+	fmt.Println(fmt.Sprintf("assigned %d to %v\n", data.ID, host))
+	return host.BFS
 }
 
 func forwardModel(data *ModelMetaData, r *http.Request) (*http.Request, error) {
@@ -105,7 +119,8 @@ func forwardModel(data *ModelMetaData, r *http.Request) (*http.Request, error) {
 	if err != nil {
 		return nil, err
 	}
-	uri := fmt.Sprintf("%s/load/%d", getNextHost().BFS, data.ID)
+
+	uri := fmt.Sprintf("%s/load/%d", assignModelHost(data), data.ID)
 	return http.NewRequest("POST", uri, body)
 }
 
@@ -114,6 +129,10 @@ func getModelsHandler(w http.ResponseWriter, r *http.Request) {
 }
 
 func evalModelHandler(w http.ResponseWriter, r *http.Request) {
+	reqId := getRequestID(r)
+	modelHost := HostMap[reqId]
+	uri := fmt.Sprintf("%s/eval/%d", modelHost.BFS, reqId)
+	http.Redirect(w, r, uri, http.StatusSeeOther)
 }
 
 func handleRequests() {
@@ -122,15 +141,27 @@ func handleRequests() {
 	router.HandleFunc("/model", createModelHandler).Methods("POST")
 	router.HandleFunc("/model/{id}", uploadModelHandler).Methods("POST")
 	router.HandleFunc("/eval/{id}", evalModelHandler).Methods("POST")
-	log.Fatal(http.ListenAndServe(":8080", router))
+	log.Fatal(http.ListenAndServe(":80", router))
 }
 
 func makeInit(){
+	hostString := os.Getenv("HOSTS")
+	fmt.Println(hostString)
+	hosts := strings.Split(hostString, ",")
+	for _, v := range hosts {
+		Hosts = append(Hosts, &HostMetaData{
+			BFS:        v,
+			ModelCount: 0,
+		})
+	}
+	for _, v := range Hosts {
+		fmt.Println(v)
+
+	}
 }
 
-
 func main() {
-	fmt.Println("listening on port 8080")
+	fmt.Println("listening on port 80")
 	makeInit()
 	handleRequests()
 }
