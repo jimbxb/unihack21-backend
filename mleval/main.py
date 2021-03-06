@@ -4,10 +4,12 @@ import re
 import shutil
 import pandas as pd
 import zipfile
+import datetime
 from contextlib import closing
 from zipfile import ZipFile, ZIP_DEFLATED
 import json as stdjson
 from ludwig import api
+import psutil
 from sanic import Sanic
 from sanic.response import json
 
@@ -168,6 +170,12 @@ def get_latest_model(path: str):
         best_match = file
     return f"{path}/{best_match}/model"
 
+
+@app.route('/stats')
+async def stats(request):
+    cpu_percent = psutil.cpu_percent()
+    memory_percent = psutil.virtual_memory().available * 100 / psutil.virtual_memory().total
+    return json({"time":  str( datetime.datetime.utcnow() ), "cpu_percent": cpu_percent, "memory_percent": memory_percent})
     
 
 @app.route('/test')
