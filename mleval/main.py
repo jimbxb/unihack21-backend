@@ -4,10 +4,12 @@ import re
 import shutil
 import pandas as pd
 import zipfile
+import datetime
 from contextlib import closing
 from zipfile import ZipFile, ZIP_DEFLATED
 import json as stdjson
 from ludwig import api
+import psutil
 from sanic import Sanic
 from sanic.response import json
 
@@ -16,6 +18,19 @@ app.config.REQUEST_MAX_SIZE = 1 << 31 -1
 app.config.REQUEST_TIMEOUT = 1 << 31 -1
 
 models = {}
+
+latencies = []
+
+@app.middleware('request')
+async def add_start_time(request):
+    request.ctx.start_time = datetime.datetime.now()
+
+@app.middleware('response')
+async def add_spent_time(request, response):
+    latency = datetime.datetime.now() - request.ctx.start_time
+    request.ctx.spent_time = latency
+    global latencies
+    latencies.append(str(latency))
 
 def zipdir(basedir, archivename):
     assert os.path.isdir(basedir)
@@ -168,6 +183,13 @@ def get_latest_model(path: str):
         best_match = file
     return f"{path}/{best_match}/model"
 
+
+@app.route('/stats')
+async def stats(request):
+    cpu_percent = psutil.cpu_percent()
+    memory_percent = psutil.virtual_memory().available * 100 / psutil.virtual_memory().total
+    global latencies
+    return json({"time":  str( datetime.datetime.utcnow() ), "cpu_percent": cpu_percent, "memory_percent": memory_percent, "latencies": latencies})
     
 
 @app.route('/test')
