@@ -62,7 +62,6 @@ func createModelHandler(w http.ResponseWriter, r *http.Request) {
 	var model ModelMetaData
 
 
-
 	model.ID = ModelCounter
 	ModelCounter++
 	ModelMap[model.ID] = model
@@ -256,7 +255,10 @@ func trainModelHandler(w http.ResponseWriter, r *http.Request) {
 	writer := multipart.NewWriter(body)
 
 	// get the training_data out of the request
-	file, header, _ := r.FormFile("training_data")
+	file, header, err := r.FormFile("training_data")
+	if err != nil {
+		w.WriteHeader(http.StatusBadRequest)
+	}
 	log.Printf("reading %s, size: %v\n", header.Filename, header.Size)
 	defer file.Close()
 
@@ -267,7 +269,10 @@ func trainModelHandler(w http.ResponseWriter, r *http.Request) {
 	var params IOParams
 
 	// get file out of the request
-	file, header, _ = r.FormFile("io_params")
+	file, header, err = r.FormFile("io_params")
+	if err != nil {
+		w.WriteHeader(http.StatusBadRequest)
+	}
 	log.Printf("reading %s, size: %v\n", header.Filename, header.Size)
 
 
