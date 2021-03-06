@@ -92,7 +92,7 @@ func uploadModelHandler(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusNotFound)
 		json.NewEncoder(w).Encode(HostNotFound{
 			Message: "no response received from requested host",
-			Host:    req.URL.RequestURI(),
+			Host:    req.URL.String(),
 		})
 	}
 }
@@ -159,7 +159,7 @@ func evalModelHandler(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusNotFound)
 		json.NewEncoder(w).Encode(HostNotFound{
 			Message: "no response received from requested host",
-			Host:    req.URL.RequestURI(),
+			Host:    req.URL.String(),
 		})
 	}
 }
