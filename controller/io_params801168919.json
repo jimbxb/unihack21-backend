@@ -1,0 +1,1 @@
+{"input_features":[{"name":"doc_text","type":"text","encoder":""}],"output_features":[{"name":"class","type":"category","encoder":""}]}
