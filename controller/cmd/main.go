@@ -30,6 +30,11 @@ type ModelFeatures struct {
 	Encoder string `json:"encoder"`
 }
 
+type HostNotFound struct {
+	Message string `json:"message"`
+	Host string `json:"host"`
+}
+
 type ModelMetaData struct {
 	ID     int32 `json:"id"`
 	Name  string `json:"name"`
@@ -84,7 +89,11 @@ func uploadModelHandler(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusAccepted)
 		json.NewEncoder(w).Encode(ret.Body)
 	} else {
-		w.WriteHeader(http.StatusRequestedRangeNotSatisfiable)
+		w.WriteHeader(http.StatusNotFound)
+		json.NewEncoder(w).Encode(HostNotFound{
+			Message: "no response received from requested host",
+			Host:    req.URL.RequestURI(),
+		})
 	}
 }
 
@@ -147,7 +156,11 @@ func evalModelHandler(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusAccepted)
 		_ = json.NewEncoder(w).Encode(ret.Body)
 	} else {
-		w.WriteHeader(http.StatusInternalServerError)
+		w.WriteHeader(http.StatusNotFound)
+		json.NewEncoder(w).Encode(HostNotFound{
+			Message: "no response received from requested host",
+			Host:    req.URL.RequestURI(),
+		})
 	}
 }
 
