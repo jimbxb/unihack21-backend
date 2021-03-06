@@ -4,6 +4,7 @@ services:
     container_name: watchtower
     image: containrrr/watchtower:latest
     restart: always
+    command: "sh -c 'echo \"server_tokens off; client_max_body_size 512m;\" > /etc/nginx/conf.d/my_proxy.conf; forego start -r'"
     volumes:
       - /var/run/docker.sock:/var/run/docker.sock
 
