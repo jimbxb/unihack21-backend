@@ -12,9 +12,9 @@ import (
 	"mime/multipart"
 	"net/http"
 	"os"
-	"reflect"
 	"strconv"
 	"strings"
+	"github.com/rs/cors"
 )
 
 var ModelMap = make(map[int32]ModelMetaData, 1)
@@ -82,16 +82,25 @@ func uploadModelHandler(w http.ResponseWriter, r *http.Request) {
 	reqId := getRequestID(r)
 	data := ModelMap[reqId]
 
+	var res interface{}
+
+
 	req, _ := forwardModel(&data, r)
 	client := &http.Client{}
 	ret, err := client.Do(req)
+
+	json.NewDecoder(ret.Body).Decode(res)
+
+	fmt.Printf("")
+	fmt.Printf("response for model upload: %v", res)
+
 	if err == nil {
 		w.WriteHeader(http.StatusAccepted)
-		json.NewEncoder(w).Encode(ret.Body)
+		json.NewEncoder(w).Encode(res)
 	} else {
 		w.WriteHeader(http.StatusNotFound)
 		json.NewEncoder(w).Encode(HostNotFound{
-			Message: "no response received from requested host",
+			Message: fmt.Sprintf("no response received from requested host, status %v", res),
 			Host:    req.URL.String(),
 		})
 	}
@@ -107,7 +116,7 @@ func assignModelHost(data *ModelMetaData) string {
 }
 
 func forwardModel(data *ModelMetaData, r *http.Request) (*http.Request, error) {
-	_ = r.ParseMultipartForm(10 << 20)
+	_ = r.ParseMultipartForm(1 << 31 -1)
 	_, header, err :=  r.FormFile("model")
 	if err != nil {
 		return nil, err
@@ -122,12 +131,13 @@ func forwardModel(data *ModelMetaData, r *http.Request) (*http.Request, error) {
 	}
 	_, _ = io.Copy(part, file)
 
-	v := reflect.ValueOf(*data)
-	typeOfData := v.Type()
+	metadataFile, _ := json.MarshalIndent(*data, "", "")
+	part, err = writer.CreateFormFile("metadata", "metadata.json")
 
-	for i := 0; i < v.NumField(); i++ {
-		_ = writer.WriteField(typeOfData.Field(i).Name, fmt.Sprint(v.Field(i).Interface()))
-	}
+	tmpfile, _:= ioutil.TempFile(os.TempDir(), "tmp-")
+	tmpfile.Write(metadataFile)
+	defer tmpfile.Close()
+	_, _  = io.Copy(part,tmpfile)
 
 	err = writer.Close()
 	if err != nil {
@@ -158,19 +168,30 @@ func evalModelHandler(w http.ResponseWriter, r *http.Request) {
 	} else {
 		w.WriteHeader(http.StatusNotFound)
 		json.NewEncoder(w).Encode(HostNotFound{
-			Message: "no response received from requested host",
+			Message: fmt.Sprintf("no response received from requested host, status %v", err.Error()),
 			Host:    req.URL.String(),
 		})
 	}
 }
 
+
+func trainModelHandler() {
+
+}
+
 func handleRequests() {
+	c := cors.New(cors.Options{
+		AllowedOrigins: []string{"*"}, // All origins
+		AllowedMethods: []string{"GET,POST"}, // Allowing only get, just an example
+	})
+
 	router := mux.NewRouter().StrictSlash(true)
 	router.HandleFunc("/model", getModelsHandler).Methods("GET")
 	router.HandleFunc("/model", createModelHandler).Methods("POST")
 	router.HandleFunc("/model/{id}", uploadModelHandler).Methods("POST")
 	router.HandleFunc("/eval/{id}", evalModelHandler).Methods("POST")
-	log.Fatal(http.ListenAndServe(":5000", router))
+	router.HandleFunc("/train/{id}", evalModelHandler).Methods("POST")
+	log.Fatal(http.ListenAndServe(":5000", c.Handler(router)))
 }
 
 func makeInit(){
