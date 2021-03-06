@@ -12,8 +12,11 @@ from ludwig import api
 import psutil
 from sanic import Sanic
 from sanic.response import json
+from sanic_cors import CORS, cross_origin
 
 app = Sanic(name="COMPUTE_WORKER")
+CORS(app, automatic_options=True)
+
 app.config.REQUEST_MAX_SIZE = 1 << 31 -1
 app.config.REQUEST_TIMEOUT = 1 << 31 -1
 

@@ -10,6 +10,7 @@ ludwig = "^0.3.3"
 sanic = "^20.12.2"
 pandas = "<1.15"
 psutil = "^5.8.0"
+Sanic-Cors = "^0.10.0"
 
 [tool.poetry.dev-dependencies]
 
