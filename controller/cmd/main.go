@@ -185,7 +185,8 @@ func handleRequests() {
 	router.HandleFunc("/model/{id}", uploadModelHandler).Methods("POST")
 	router.HandleFunc("/eval/{id}", evalModelHandler).Methods("POST")
 	router.HandleFunc("/train/{id}", trainModelHandler).Methods("POST")
-	log.Fatal(http.ListenAndServe(":5000", cors.AllowAll().Handler(router)))
+	handler := cors.AllowAll().Handler(router)
+	log.Fatal(http.ListenAndServe(":5000", handler))
 }
 
 func makeInit(){
