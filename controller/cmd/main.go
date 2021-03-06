@@ -316,13 +316,7 @@ func trainModelHandler(w http.ResponseWriter, r *http.Request) {
 
 	client := &http.Client{}
 	ret, err := client.Do(req)
-
-	res, _ := ioutil.ReadAll(ret.Body)
-	if err == nil {
-		w.WriteHeader(http.StatusAccepted)
-		_ = json.NewEncoder(w).Encode(newModel.ID)
-		log.Printf("Successfully processed train model, %v\n", string(res))
-	} else {
+	if err != nil {
 		w.WriteHeader(http.StatusNotFound)
 		json.NewEncoder(w).Encode(HostNotFound{
 			Message: fmt.Sprintf("no response received from requested host, status %v\n", err.Error()),
@@ -330,6 +324,11 @@ func trainModelHandler(w http.ResponseWriter, r *http.Request) {
 		})
 		log.Printf("unsuccessful in processing train model %v\n", err)
 	}
+
+	res, _ := ioutil.ReadAll(ret.Body)
+	w.WriteHeader(http.StatusAccepted)
+	_ = json.NewEncoder(w).Encode(newModel.ID)
+	log.Printf("Successfully processed train model, %v\n", string(res))
 }
 
 func onFinished(w http.ResponseWriter, r *http.Request) {
