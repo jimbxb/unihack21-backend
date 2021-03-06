@@ -1,10 +1,17 @@
 version: "2"
 services:
+  nginx-proxy:
+    image: jwilder/nginx-proxy
+    command: "sh -c 'echo \"server_tokens off; client_max_body_size 512m;\" > /etc/nginx/conf.d/my_proxy.conf; forego start -r'"
+    ports:
+      - "80:80"
+    volumes:
+      - "/var/run/docker.sock:/tmp/docker.sock:ro"
+
   watchtower:
     container_name: watchtower
     image: containrrr/watchtower:latest
     restart: always
-    command: "sh -c 'echo \"server_tokens off; client_max_body_size 512m;\" > /etc/nginx/conf.d/my_proxy.conf; forego start -r'"
     volumes:
       - /var/run/docker.sock:/var/run/docker.sock
 
@@ -14,10 +21,10 @@ services:
     env_file:
       - controller.env
     ports:
-      - "443:443"
-      - "80:80"
+      - "5000:5000"
     restart: always
     depends_on:
+      - nginx-proxy
       - watchtower
 
   worker:
