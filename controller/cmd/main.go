@@ -75,48 +75,8 @@ func uploadModelHandler(w http.ResponseWriter, r *http.Request) {
 	req, _ := forwardModel(&data, r)
 	client := &http.Client{}
 	client.Do(req)
-	w.WriteHeader(200)
+	json.NewEncoder(w).Encode(data)
 }
-version: "2"
-services:
-nginx-proxy:
-image: jwilder/nginx-proxy
-ports:
-- "80:80"
-- "443:443"
-volumes:
-- "./nginx/vhost.d:/etc/nginx/vhost.d"
-- "./nginx/html:/usr/share/nginx/html"
-- "./nginx/certs:/etc/nginx/certs"
-- "/var/run/docker.sock:/tmp/docker.sock:ro"
-
-letsencrypt:
-image: jrcs/letsencrypt-nginx-proxy-companion
-volumes:
-- "/var/run/docker.sock:/var/run/docker.sock:ro"
-volumes_from:
-- "nginx-proxy"
-
-watchtower:
-container_name: watchtower
-image: containrrr/watchtower:latest
-restart: always
-volumes:
-- /var/run/docker.sock:/var/run/docker.sock
-
-controller:
-container_name: controller
-image: kvoli/scalario-controller:latest
-env_file:
-- controller.env
-ports:
-- "8080:8080"
-restart: always
-depends_on:
-- nginx-proxy
-- letsencrypt
-- watchtower
-
 
 func forwardModel(data *ModelMetaData, r *http.Request) (*http.Request, error) {
 	r.ParseMultipartForm(10 << 20)
@@ -154,10 +114,6 @@ func getModelsHandler(w http.ResponseWriter, r *http.Request) {
 }
 
 func evalModelHandler(w http.ResponseWriter, r *http.Request) {
-	reqId := getRequestID(r)
-	data := ModelMap[reqId]
-
-	req, _
 }
 
 func handleRequests() {

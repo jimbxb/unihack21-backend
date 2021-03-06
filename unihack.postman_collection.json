@@ -1,0 +1,135 @@
+{
+	"info": {
+		"_postman_id": "2ba6f553-ee11-41c3-bf81-3e61c001c429",
+		"name": "unihack",
+		"schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+	},
+	"item": [
+		{
+			"name": "get all models metadata",
+			"event": [
+				{
+					"listen": "test",
+					"script": {
+						"exec": [
+							"pm.test(\"Status code is 200\", function () {",
+							"    pm.response.to.have.status(200);",
+							"});"
+						],
+						"type": "text/javascript"
+					}
+				}
+			],
+			"request": {
+				"method": "GET",
+				"header": [],
+				"url": {
+					"raw": "165.232.169.221:8080/model",
+					"host": [
+						"165",
+						"232",
+						"169",
+						"221"
+					],
+					"port": "8080",
+					"path": [
+						"model"
+					]
+				}
+			},
+			"response": []
+		},
+		{
+			"name": "Create  a Model",
+			"event": [
+				{
+					"listen": "test",
+					"script": {
+						"exec": [
+							"pm.test(\"Status code is 200\", function () {",
+							"    pm.response.to.have.status(200);",
+							"});"
+						],
+						"type": "text/javascript"
+					}
+				}
+			],
+			"request": {
+				"method": "POST",
+				"header": [],
+				"body": {
+					"mode": "raw",
+					"raw": "{\n    \"name\": \"testName\",\n    \"description\": \"fake description\",\n    \"input_features\": {\n        \"name\": \"input test\",\n        \"type\": \"string\",\n        \"encode\": \"nnn\"\n    },\n    \"output_features\": {\n        \"name\": \"input test\",\n        \"type\": \"string\",\n        \"encode\": \"nnn\"\n    }\n}",
+					"options": {
+						"raw": {
+							"language": "json"
+						}
+					}
+				},
+				"url": {
+					"raw": "165.232.169.221:8080/model",
+					"host": [
+						"165",
+						"232",
+						"169",
+						"221"
+					],
+					"port": "8080",
+					"path": [
+						"model"
+					]
+				}
+			},
+			"response": []
+		},
+		{
+			"name": "Upload files to model",
+			"event": [
+				{
+					"listen": "test",
+					"script": {
+						"exec": [
+							"pm.test(\"Status code is 200\", function () {",
+							"    pm.response.to.have.status(200);",
+							"});"
+						],
+						"type": "text/javascript"
+					}
+				}
+			],
+			"request": {
+				"method": "POST",
+				"header": [],
+				"body": {
+					"mode": "formdata",
+					"formdata": [
+						{
+							"key": "model",
+							"type": "file",
+							"src": "/home/kvoli/Downloads/tute01.pdf"
+						}
+					],
+					"options": {
+						"raw": {
+							"language": "json"
+						}
+					}
+				},
+				"url": {
+					"raw": "165.232.169.221:8080/model",
+					"host": [
+						"165",
+						"232",
+						"169",
+						"221"
+					],
+					"port": "8080",
+					"path": [
+						"model"
+					]
+				}
+			},
+			"response": []
+		}
+	]
+}
