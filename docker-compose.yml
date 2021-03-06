@@ -31,7 +31,7 @@ services:
     env_file:
       - controller.env
     ports:
-      - "5000:5000"
+      - "8000:80"
     restart: always
     depends_on:
       - nginx-proxy
