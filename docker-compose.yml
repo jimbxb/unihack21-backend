@@ -25,9 +25,9 @@ services:
     volumes:
       - /var/run/docker.sock:/var/run/docker.sock
 
-  contest:
+  controller:
     container_name: controller
-    image: kvoli/scalario-contest:latest
+    image: kvoli/scalario-controller:latest
     env_file:
       - controller.env
     ports:
