@@ -363,6 +363,7 @@ func handleRequests() {
 	certManager := autocert.Manager{
 		Prompt: autocert.AcceptTOS,
 		Cache:  autocert.DirCache("certs"),
+		HostPolicy: autocert.HostWhitelist("api.kvoli.com"),
 	}
 
 	server := &http.Server{

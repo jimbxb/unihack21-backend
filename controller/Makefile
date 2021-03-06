@@ -1,8 +1,8 @@
-build: 
-	CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -o autossl
+build:
+	go build -o bin/main cmd/main.go
 
 run:
-	go run cmd/main.go
+	go run main.go
 
 clean:
 	rm -rf bin/
