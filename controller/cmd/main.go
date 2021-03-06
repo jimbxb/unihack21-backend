@@ -58,6 +58,31 @@ type NotifyDone struct {
 	ID int32 `json:"id"`
 }
 
+func fileUploadHandler(w http.ResponseWriter, r *http.Request) {
+	r.ParseMultipartForm(10 << 20)
+	file, header, err := r.FormFile("file")
+	if err != nil {
+		log.Println("Error Getting File", err)
+		return
+	}
+	defer file.Close()
+
+	out, pathError := ioutil.TempFile("temp-images", "upload-*.png")
+	if pathError != nil {
+		log.Println("Error Creating a file for writing", pathError)
+		return
+	}
+	defer out.Close()
+
+	_, copyError := io.Copy(out, file)
+	if copyError != nil {
+		log.Println("Error copying", copyError)
+	}
+	fmt.Fprintln(w, "File Uploaded Successfully! ")
+	fmt.Fprintln(w, "Name of the File: ", header.Filename)
+	fmt.Fprintln(w, "Size of the File: ", header.Size)
+}
+
 func createModelHandler(w http.ResponseWriter, r *http.Request) {
 	reqBody, _ := ioutil.ReadAll(r.Body)
 	var model ModelMetaData
@@ -85,7 +110,7 @@ func getNextHost() (*HostMetaData, error) {
 			best = host.ModelCount
 		}
 	}
-	if (best == int32(math.MaxInt32)) {
+	if best == int32(math.MaxInt32) {
 		return nil, fmt.Errorf("no hosts to get allocate to\n")
 	} else {
 		return res, nil
@@ -230,9 +255,10 @@ func evalModelHandler(w http.ResponseWriter, r *http.Request) {
 
 	ret, err := client.Do(req)
 
+	res, _ := ioutil.ReadAll(ret.Body)
 	if err == nil {
 		w.WriteHeader(http.StatusAccepted)
-		_ = json.NewEncoder(w).Encode(ret.Body)
+		_ = json.NewEncoder(w).Encode(string(res))
 		fmt.Printf("Successfully processed eval model\n")
 	} else {
 		w.WriteHeader(http.StatusNotFound)
@@ -244,7 +270,88 @@ func evalModelHandler(w http.ResponseWriter, r *http.Request) {
 	}
 }
 func trainModelHandler(w http.ResponseWriter, r *http.Request) {
-	w.WriteHeader(http.StatusAccepted)
+
+	_ = r.ParseMultipartForm(1<<31 - 1)
+
+	// create a new buffer to write the multipart form data into
+	body := new(bytes.Buffer)
+	writer := multipart.NewWriter(body)
+
+	// get the training_data out of the request
+	file, header, _ := r.FormFile("training_data")
+	log.Printf("reading %s, size: %v\n", header.Filename, header.Size)
+	defer file.Close()
+
+	// create the training_data part
+	part, _ := writer.CreateFormFile("training_data", header.Filename)
+	_, _ = io.Copy(part, file)
+
+	var params IOParams
+
+	// get file out of the request
+	file, header, _ = r.FormFile("io_params")
+	log.Printf("reading %s, size: %v\n", header.Filename, header.Size)
+
+
+	part, _ = writer.CreateFormFile("io_params", header.Filename)
+	_, _ = io.Copy(part, file)
+
+	f, _ := header.Open()
+	defer f.Close()
+
+	// write the IO params to io_params object
+	buf := new(bytes.Buffer)
+	if _, err := io.Copy(buf, f); err != nil {
+		log.Panic("Error writing io_params into buffer: \n\n", err)
+	}
+
+	log.Printf("length of buffer is %v\n", buf.Len())
+
+
+
+	byt, _ := ioutil.ReadAll(buf)
+	log.Printf("data inside ioparams: %v\n", string(byt))
+	if err := json.Unmarshal(byt, &params); err != nil {
+		log.Panic("Error unmarshalling ioparams\n\n", err)
+	}
+
+	name := r.FormValue("name")
+
+	newModel := ModelMetaData{
+		ID:       ModelCounter,
+		Name:     name,
+		Desc:     "A very useful model in training!",
+		IOParams: params,
+	}
+	ModelCounter+=1
+	hosturl, _ := assignModelHost(&newModel)
+
+	ModelMap[newModel.ID] = newModel
+
+
+	writer.Close()
+
+	uri := fmt.Sprintf("%s/train/%d", hosturl, newModel.ID)
+	req, _ := http.NewRequest("POST", uri, body)
+	req.Header.Set("Content-Type", writer.FormDataContentType())
+
+
+	client := &http.Client{}
+	ret, err := client.Do(req)
+
+	res, _ := ioutil.ReadAll(ret.Body)
+	if err == nil && ret.Status == "200" {
+		w.WriteHeader(http.StatusAccepted)
+		_ = json.NewEncoder(w).Encode(newModel.ID)
+		fmt.Printf("Successfully processed train model, %v\n", string(res))
+	} else {
+		w.WriteHeader(http.StatusNotFound)
+		json.NewEncoder(w).Encode(HostNotFound{
+			Message: fmt.Sprintf("no response received from requested host, status %v\n", err.Error()),
+			Host:    req.URL.String(),
+		})
+		fmt.Printf("unsuccessful in processing train model %v\n", err)
+	}
 }
 
 func onFinished(w http.ResponseWriter, r *http.Request) {
