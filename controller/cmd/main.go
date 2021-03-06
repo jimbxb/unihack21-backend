@@ -5,8 +5,6 @@ import (
 	"crypto/tls"
 	"encoding/json"
 	"fmt"
-	"github.com/foomo/simplecert"
-	"github.com/foomo/tlsconfig"
 	"github.com/gorilla/mux"
 	"github.com/rs/cors"
 	"io"
@@ -18,6 +16,7 @@ import (
 	"os"
 	"strconv"
 	"strings"
+	"golang.org/x/crypto/acme/autocert"
 )
 
 var ModelMap = make(map[int32]ModelMetaData, 1)
@@ -361,12 +360,21 @@ func handleRequests() {
 	router.HandleFunc("/train", trainModelHandler).Methods("POST")
 	router.HandleFunc("/nodes", getNodesHandler).Methods("GET")
 	handler := cors.AllowAll().Handler(router)
-	s := &http.Server{
-		Addr:      ":443",
-		TLSConfig: setupDNS(),
-		Handler: handler,
+	certManager := autocert.Manager{
+		Prompt: autocert.AcceptTOS,
+		Cache:  autocert.DirCache("certs"),
 	}
-	log.Fatal(s.ListenAndServeTLS("", ""))
+
+	server := &http.Server{
+		Addr:    ":443",
+		Handler: handler,
+		TLSConfig: &tls.Config{
+			GetCertificate: certManager.GetCertificate,
+		},
+	}
+
+	go http.ListenAndServe(":80", certManager.HTTPHandler(nil))
+	log.Fatal(server.ListenAndServeTLS("", ""))
 }
 
 func makeInit() {
@@ -381,33 +389,6 @@ func makeInit() {
 	for _, v := range Hosts {
 		log.Printf("Added Host %v\n", v)
 	}
-}
-
-func setupDNS() *tls.Config {
-
-	// do the cert magic
-	cfg := simplecert.Default
-	cfg.Domains = []string{"api.kvoli.com"}
-	cfg.CacheDir = "letsencrypt/live/api.kvoli.com"
-	cfg.SSLEmail = "amcclernon@student.unimelb.edu.au"
-	certReloader, err := simplecert.Init(cfg, nil)
-	if err != nil {
-		log.Fatal("simplecert init failed: ", err)
-	}
-
-	// redirect HTTP to HTTPS
-	// CAUTION: This has to be done AFTER simplecert setup
-	// Otherwise Port 80 will be blocked and cert registration fails!
-	log.Println("starting HTTP Listener on Port 80")
-	go http.ListenAndServe(":80", http.HandlerFunc(simplecert.Redirect))
-
-	// init strict tlsConfig with certReloader
-	// you could also use a default &tls.Config{}, but be warned this is highly insecure
-	tlsconf := tlsconfig.NewServerTLSConfig(tlsconfig.TLSModeServerStrict)
-
-	// now set GetCertificate to the reloaders GetCertificateFunc to enable hot reload
-	tlsconf.GetCertificate = certReloader.GetCertificateFunc()
-	return tlsconf
 }
 
 func main() {

@@ -11,7 +11,7 @@ COPY . /app
 WORKDIR /app
  
 # Run command as described:
-RUN	go build -o bin/app cmd/main.go
+RUN	CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -o bin/app cmd/main.go 
  
 # Run the server executable
 CMD [ "/app/bin/app" ]
