@@ -4,19 +4,8 @@ services:
     image: jwilder/nginx-proxy
     ports:
       - "80:80"
-      - "443:443"
     volumes:
-      - "./nginx/vhost.d:/etc/nginx/vhost.d"
-      - "./nginx/html:/usr/share/nginx/html"
-      - "./nginx/certs:/etc/nginx/certs"
       - "/var/run/docker.sock:/tmp/docker.sock:ro"
-
-  letsencrypt:
-    image: jrcs/letsencrypt-nginx-proxy-companion
-    volumes:
-      - "/var/run/docker.sock:/var/run/docker.sock:ro"
-    volumes_from:
-      - "nginx-proxy"
 
   watchtower:
     container_name: watchtower
@@ -31,10 +20,9 @@ services:
     env_file:
       - controller.env
     ports:
-      - "8000:80"
+      - "5000:5000"
     restart: always
     depends_on:
       - nginx-proxy
-      - letsencrypt
       - watchtower
 

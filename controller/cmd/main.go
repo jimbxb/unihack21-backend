@@ -79,8 +79,13 @@ func uploadModelHandler(w http.ResponseWriter, r *http.Request) {
 
 	req, _ := forwardModel(&data, r)
 	client := &http.Client{}
-	client.Do(req)
-	json.NewEncoder(w).Encode(data)
+	ret, err := client.Do(req)
+	if err == nil {
+		w.WriteHeader(http.StatusAccepted)
+		json.NewEncoder(w).Encode(ret.Body)
+	} else {
+		w.WriteHeader(http.StatusRequestedRangeNotSatisfiable)
+	}
 }
 
 
@@ -93,7 +98,7 @@ func assignModelHost(data *ModelMetaData) string {
 }
 
 func forwardModel(data *ModelMetaData, r *http.Request) (*http.Request, error) {
-	r.ParseMultipartForm(10 << 20)
+	_ = r.ParseMultipartForm(10 << 20)
 	_, header, err :=  r.FormFile("model")
 	if err != nil {
 		return nil, err
@@ -106,13 +111,13 @@ func forwardModel(data *ModelMetaData, r *http.Request) (*http.Request, error) {
 	if err != nil {
 		return nil, err
 	}
-	io.Copy(part, file)
+	_, _ = io.Copy(part, file)
 
 	v := reflect.ValueOf(*data)
 	typeOfData := v.Type()
 
 	for i := 0; i < v.NumField(); i++ {
-		writer.WriteField(typeOfData.Field(i).Name, fmt.Sprint(v.Field(i).Interface()))
+		_ = writer.WriteField(typeOfData.Field(i).Name, fmt.Sprint(v.Field(i).Interface()))
 	}
 
 	err = writer.Close()
@@ -132,7 +137,18 @@ func evalModelHandler(w http.ResponseWriter, r *http.Request) {
 	reqId := getRequestID(r)
 	modelHost := HostMap[reqId]
 	uri := fmt.Sprintf("%s/eval/%d", modelHost.BFS, reqId)
-	http.Redirect(w, r, uri, http.StatusSeeOther)
+
+	req, _ := http.NewRequest("POST", uri, r.Body)
+	client := &http.Client{}
+
+	ret, err := client.Do(req)
+
+	if err == nil {
+		w.WriteHeader(http.StatusAccepted)
+		_ = json.NewEncoder(w).Encode(ret.Body)
+	} else {
+		w.WriteHeader(http.StatusInternalServerError)
+	}
 }
 
 func handleRequests() {
@@ -141,7 +157,7 @@ func handleRequests() {
 	router.HandleFunc("/model", createModelHandler).Methods("POST")
 	router.HandleFunc("/model/{id}", uploadModelHandler).Methods("POST")
 	router.HandleFunc("/eval/{id}", evalModelHandler).Methods("POST")
-	log.Fatal(http.ListenAndServe(":80", router))
+	log.Fatal(http.ListenAndServe(":5000", router))
 }
 
 func makeInit(){
@@ -161,7 +177,7 @@ func makeInit(){
 }
 
 func main() {
-	fmt.Println("listening on port 80")
+	fmt.Println("listening on port 5000")
 	makeInit()
 	handleRequests()
 }
