@@ -347,7 +347,7 @@ func trainModelHandler(w http.ResponseWriter, r *http.Request) {
 	} else {
 		w.WriteHeader(http.StatusNotFound)
 		json.NewEncoder(w).Encode(HostNotFound{
-			Message: fmt.Sprintf("no response received from requested host, status %v\n", err.Error()),
+			Message: fmt.Sprintf("no response received from requested host, status %v\n"),
 			Host:    req.URL.String(),
 		})
 		fmt.Printf("unsuccessful in processing train model %v\n", err)
@@ -368,6 +368,10 @@ func onFinished(w http.ResponseWriter, r *http.Request) {
 	return
 }
 
+func getNodesHandler(w http.ResponseWriter, r *http.Request) {
+	json.NewEncoder(w).Encode(Hosts)
+}
+
 func handleRequests() {
 	router := mux.NewRouter().StrictSlash(true)
 	router.HandleFunc("/model", getModelsHandler).Methods("GET")
@@ -375,6 +379,7 @@ func handleRequests() {
 	router.HandleFunc("/model/{id}", uploadModelHandler).Methods("POST")
 	router.HandleFunc("/eval/{id}", evalModelHandler).Methods("POST")
 	router.HandleFunc("/train", trainModelHandler).Methods("POST")
+	router.HandleFunc("/nodes", getNodesHandler).Methods("GET")
 	handler := cors.AllowAll().Handler(router)
 	log.Fatal(http.ListenAndServe(":5000", handler))
 }
