@@ -89,7 +89,7 @@ func createModelHandler(w http.ResponseWriter, r *http.Request) {
 	_ = json.Unmarshal(reqBody, &model)
 
 	model.ID = ModelCounter
-	ModelCounter += 1
+	ModelCounter++
 	ModelMap[model.ID] = model
 	_ = json.NewEncoder(w).Encode(model.ID)
 }
@@ -132,7 +132,7 @@ func uploadModelHandler(w http.ResponseWriter, r *http.Request) {
 			Message: fmt.Sprintf("error in attempting to create request: %v\n", err),
 			Host:    req.URL.String(),
 		})
-		fmt.Printf("error sending request: %v\n", err)
+		log.Printf("error sending request: %v\n", err)
 		return
 	}
 
@@ -147,14 +147,14 @@ func uploadModelHandler(w http.ResponseWriter, r *http.Request) {
 			Message: fmt.Sprintf("error in request to server %v\n", err),
 			Host:    req.URL.String(),
 		})
-		fmt.Printf("error sending request: %v\n", err)
+		log.Printf("error sending request: %v\n", err)
 		return
 	}
 
 	res, _ := ioutil.ReadAll(ret.Body)
 
 
-	fmt.Printf("response for model upload: %s, error: %v\n", string(res), err)
+	log.Printf("response for model upload: %s, error: %v\n", string(res), err)
 
 	if err == nil {
 		w.WriteHeader(http.StatusAccepted)
@@ -175,13 +175,13 @@ func assignModelHost(data *ModelMetaData) (string, error){
 	}
 
 	if val, ok := HostMap[data.ID]; ok {
-		fmt.Println(fmt.Sprintf("found existing host for model: %d, %v\n", data.ID, host))
+		log.Println(fmt.Sprintf("found existing host for model: %d, %v\n", data.ID, host))
 		return val.BFS, nil
 	}
 
+	host.ModelCount++
 	HostMap[data.ID] = host
-	host.ModelCount += 1
-	fmt.Println(fmt.Sprintf("assigned data.modelID: %d to %v\n", data.ID, host))
+	log.Println(fmt.Sprintf("assigned data.modelID: %d to %v\n", data.ID, host))
 	return host.BFS, nil
 }
 
@@ -206,7 +206,7 @@ func forwardModel(data *ModelMetaData, r *http.Request) (*http.Request, error) {
 		return nil, err
 	}
 	_, _ = io.Copy(part, file)
-	fmt.Printf("wrote file into part\n")
+	log.Printf("wrote file into part\n")
 
 	// create the metadata part
 	part, err = writer.CreateFormFile("metadata", "metadata.json")
@@ -223,7 +223,6 @@ func forwardModel(data *ModelMetaData, r *http.Request) (*http.Request, error) {
 	tmpfile2.Write(ioParamfile)
 	defer tmpfile2.Close()
 	_, _ = io.Copy(part, tmpfile2)
-	fmt.Printf("wrote json part\n")
 
 	err = writer.Close()
 	if err != nil {
@@ -259,14 +258,14 @@ func evalModelHandler(w http.ResponseWriter, r *http.Request) {
 	if err == nil {
 		w.WriteHeader(http.StatusAccepted)
 		_ = json.NewEncoder(w).Encode(string(res))
-		fmt.Printf("Successfully processed eval model\n")
+		log.Printf("processed eval model: %v\n", string(res))
 	} else {
 		w.WriteHeader(http.StatusNotFound)
 		json.NewEncoder(w).Encode(HostNotFound{
 			Message: fmt.Sprintf("no response received from requested host, status %v\n", err.Error()),
 			Host:    req.URL.String(),
 		})
-		fmt.Printf("unsuccessful in processing eval model %v\n", err)
+		log.Printf("unsuccessful in processing eval model %v\n", err)
 	}
 }
 func trainModelHandler(w http.ResponseWriter, r *http.Request) {
@@ -340,17 +339,17 @@ func trainModelHandler(w http.ResponseWriter, r *http.Request) {
 	ret, err := client.Do(req)
 
 	res, _ := ioutil.ReadAll(ret.Body)
-	if err == nil && ret.Status == "200" {
+	if err == nil {
 		w.WriteHeader(http.StatusAccepted)
 		_ = json.NewEncoder(w).Encode(newModel.ID)
-		fmt.Printf("Successfully processed train model, %v\n", string(res))
+		log.Printf("Successfully processed train model, %v\n", string(res))
 	} else {
 		w.WriteHeader(http.StatusNotFound)
 		json.NewEncoder(w).Encode(HostNotFound{
-			Message: fmt.Sprintf("no response received from requested host, status %v\n"),
+			Message: fmt.Sprintf("no response received from requested host, status %v\n", err.Error()),
 			Host:    req.URL.String(),
 		})
-		fmt.Printf("unsuccessful in processing train model %v\n", err)
+		log.Printf("unsuccessful in processing train model %v\n", err)
 	}
 }
 
@@ -394,7 +393,7 @@ func makeInit() {
 		})
 	}
 	for _, v := range Hosts {
-		fmt.Println(v)
+		log.Printf("Added Host %v\n", v)
 	}
 }
 
