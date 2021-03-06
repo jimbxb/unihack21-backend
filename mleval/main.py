@@ -12,7 +12,9 @@ from sanic import Sanic
 from sanic.response import json
 
 app = Sanic(name="COMPUTE_WORKER")
-app.config.REQUEST_MAX_SIZE = 2147483648 - 1
+app.config.REQUEST_MAX_SIZE = 1 << 31 -1
+app.config.REQUEST_TIMEOUT = 1 << 31 -1
+
 models = {}
 
 def zipdir(basedir, archivename):
