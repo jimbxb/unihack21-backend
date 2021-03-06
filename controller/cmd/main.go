@@ -4,7 +4,6 @@ import (
 	"bytes"
 	"encoding/json"
 	"fmt"
-	"github.com/gorilla/mux"
 	"io"
 	"io/ioutil"
 	"log"
@@ -14,38 +13,45 @@ import (
 	"os"
 	"strconv"
 	"strings"
+
+	"github.com/gorilla/mux"
 	"github.com/rs/cors"
 )
 
 var ModelMap = make(map[int32]ModelMetaData, 1)
 var HostMap = make(map[int32]*HostMetaData, 1)
-var Hosts = make ([]*HostMetaData, 0)
+var Hosts = make([]*HostMetaData, 0)
+
+var Status = make(map[int32]bool)
 
 var ModelCounter int32 = 0
 
-
 type ModelFeatures struct {
-	Name string `json:"name"`
-	Type string `json:"type"`
+	Name    string `json:"name"`
+	Type    string `json:"type"`
 	Encoder string `json:"encoder"`
 }
 
 type HostNotFound struct {
 	Message string `json:"message"`
-	Host string `json:"host"`
+	Host    string `json:"host"`
 }
 
 type ModelMetaData struct {
-	ID     int32 `json:"id"`
-	Name  string `json:"name"`
-	Desc     string `json:"description"`
-	InputFeatures ModelFeatures `json:"input_features"`
+	ID             int32         `json:"id"`
+	Name           string        `json:"name"`
+	Desc           string        `json:"description"`
+	InputFeatures  ModelFeatures `json:"input_features"`
 	OutputFeatures ModelFeatures `json:"output_features"`
 }
 
 type HostMetaData struct {
-	BFS string `json:"serverId"`
-	ModelCount int32 `json:"modelCount"`
+	BFS        string `json:"serverId"`
+	ModelCount int32  `json:"modelCount"`
+}
+
+type NotifyDone struct {
+	ID int32 `json:"id"`
 }
 
 func createModelHandler(w http.ResponseWriter, r *http.Request) {
@@ -54,14 +60,14 @@ func createModelHandler(w http.ResponseWriter, r *http.Request) {
 	_ = json.Unmarshal(reqBody, &model)
 
 	model.ID = ModelCounter
-	ModelCounter+=1
+	ModelCounter += 1
 	ModelMap[model.ID] = model
 	_ = json.NewEncoder(w).Encode(model.ID)
 }
 
 func getRequestID(r *http.Request) int32 {
 	vars := mux.Vars(r)
-	id, _ :=  strconv.Atoi(vars["id"])
+	id, _ := strconv.Atoi(vars["id"])
 	numId := int32(id)
 	return numId
 }
@@ -70,7 +76,7 @@ func getNextHost() *HostMetaData {
 	best := int32(math.MaxInt32)
 	var res *HostMetaData
 	for _, host := range Hosts {
-		if host.ModelCount < best{
+		if host.ModelCount < best {
 			res = host
 			best = host.ModelCount
 		}
@@ -83,7 +89,6 @@ func uploadModelHandler(w http.ResponseWriter, r *http.Request) {
 	data := ModelMap[reqId]
 
 	var res interface{}
-
 
 	req, _ := forwardModel(&data, r)
 	client := &http.Client{}
@@ -106,7 +111,6 @@ func uploadModelHandler(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
-
 func assignModelHost(data *ModelMetaData) string {
 	host := getNextHost()
 	HostMap[data.ID] = host
@@ -116,8 +120,8 @@ func assignModelHost(data *ModelMetaData) string {
 }
 
 func forwardModel(data *ModelMetaData, r *http.Request) (*http.Request, error) {
-	_ = r.ParseMultipartForm(1 << 31 -1)
-	_, header, err :=  r.FormFile("model")
+	_ = r.ParseMultipartForm(1<<31 - 1)
+	_, header, err := r.FormFile("model")
 	if err != nil {
 		return nil, err
 	}
@@ -134,10 +138,10 @@ func forwardModel(data *ModelMetaData, r *http.Request) (*http.Request, error) {
 	metadataFile, _ := json.MarshalIndent(*data, "", "")
 	part, err = writer.CreateFormFile("metadata", "metadata.json")
 
-	tmpfile, _:= ioutil.TempFile(os.TempDir(), "tmp-")
+	tmpfile, _ := ioutil.TempFile(os.TempDir(), "tmp-")
 	tmpfile.Write(metadataFile)
 	defer tmpfile.Close()
-	_, _  = io.Copy(part,tmpfile)
+	_, _ = io.Copy(part, tmpfile)
 
 	err = writer.Close()
 	if err != nil {
@@ -145,6 +149,7 @@ func forwardModel(data *ModelMetaData, r *http.Request) (*http.Request, error) {
 	}
 
 	uri := fmt.Sprintf("%s/load/%d", assignModelHost(data), data.ID)
+	Status[data.ID] = false
 	return http.NewRequest("POST", uri, body)
 }
 
@@ -177,6 +182,20 @@ func trainModelHandler(w http.ResponseWriter, r *http.Request) {
 
 }
 
+func onFinished(w http.ResponseWriter, r *http.Request) {
+	var nd NotifyDone
+
+	err := json.NewDecoder(r.Body).Decode(&nd)
+
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusBadRequest)
+		return
+	}
+
+	Status[nd.ID] = true
+	return
+}
+
 func handleRequests() {
 
 	router := mux.NewRouter().StrictSlash(true)
@@ -189,7 +208,7 @@ func handleRequests() {
 	log.Fatal(http.ListenAndServe(":5000", handler))
 }
 
-func makeInit(){
+func makeInit() {
 	hostString := os.Getenv("HOSTS")
 	hosts := strings.Split(hostString, ",")
 	for _, v := range hosts {
