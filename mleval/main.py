@@ -180,5 +180,5 @@ if __name__ == "__main__":
     # model = api.LudwigModel.load(location)
     # out = model.predict({"doc_text": ["football"]})
     # print(out)
-    # load_models()
+    load_models()
     app.run(host='0.0.0.0', port=3000)
