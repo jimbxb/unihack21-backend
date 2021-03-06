@@ -19,6 +19,19 @@ app.config.REQUEST_TIMEOUT = 1 << 31 -1
 
 models = {}
 
+latencies = []
+
+@app.middleware('request')
+async def add_start_time(request):
+    request.ctx.start_time = datetime.datetime.now()
+
+@app.middleware('response')
+async def add_spent_time(request, response):
+    latency = datetime.datetime.now() - request.ctx.start_time
+    request.ctx.spent_time = latency
+    global latencies
+    latencies.append(str(latency))
+
 def zipdir(basedir, archivename):
     assert os.path.isdir(basedir)
     with closing(ZipFile(archivename, "w", ZIP_DEFLATED)) as z:
@@ -175,7 +188,8 @@ def get_latest_model(path: str):
 async def stats(request):
     cpu_percent = psutil.cpu_percent()
     memory_percent = psutil.virtual_memory().available * 100 / psutil.virtual_memory().total
-    return json({"time":  str( datetime.datetime.utcnow() ), "cpu_percent": cpu_percent, "memory_percent": memory_percent})
+    global latencies
+    return json({"time":  str( datetime.datetime.utcnow() ), "cpu_percent": cpu_percent, "memory_percent": memory_percent, "latencies": latencies})
     
 
 @app.route('/test')
