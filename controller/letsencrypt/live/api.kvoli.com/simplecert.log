@@ -1,7 +1,0 @@
-2021/03/07 02:24:55 [INFO] simplecert: client creation complete
-2021/03/07 02:24:55 simplecert init failed: simplecert: failed to create lego.Client: simplecert: setting DNS provider specified in config: cloudflare: some credentials information are missing: CLOUDFLARE_EMAIL,CLOUDFLARE_API_KEY or some credentials information are missing: CLOUDFLARE_DNS_API_TOKEN,CLOUDFLARE_ZONE_API_TOKEN
-2021/03/07 02:25:21 [INFO] simplecert: client creation complete
-2021/03/07 02:25:21 [INFO] simplecert: set HTTP challenge
-2021/03/07 02:25:21 [INFO] simplecert: set TLS challenge
-2021/03/07 02:25:22 [INFO] simplecert: client registration complete:  &{0xc0005179e0 0xc000514c60 0xc00035dde8 0xc0003f8000}
-2021/03/07 02:25:22 simplecert init failed: simplecert: failed to obtain cert: acme: error: 429 :: POST :: https://acme-v02.api.letsencrypt.org/acme/new-order :: urn:ietf:params:acme:error:rateLimited :: Error creating new order :: too many certificates already issued for exact set of domains: api.kvoli.com: see https://letsencrypt.org/docs/rate-limits/, url: 

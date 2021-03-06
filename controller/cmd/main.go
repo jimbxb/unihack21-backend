@@ -2,7 +2,6 @@ package main
 
 import (
 	"bytes"
-	"crypto/tls"
 	"encoding/json"
 	"fmt"
 	"github.com/gorilla/mux"
@@ -16,7 +15,6 @@ import (
 	"os"
 	"strconv"
 	"strings"
-	"golang.org/x/crypto/acme/autocert"
 )
 
 var ModelMap = make(map[int32]ModelMetaData, 1)
@@ -360,22 +358,7 @@ func handleRequests() {
 	router.HandleFunc("/train", trainModelHandler).Methods("POST")
 	router.HandleFunc("/nodes", getNodesHandler).Methods("GET")
 	handler := cors.AllowAll().Handler(router)
-	certManager := autocert.Manager{
-		Prompt: autocert.AcceptTOS,
-		Cache:  autocert.DirCache("certs"),
-		HostPolicy: autocert.HostWhitelist("api.kvoli.com"),
-	}
-
-	server := &http.Server{
-		Addr:    ":443",
-		Handler: handler,
-		TLSConfig: &tls.Config{
-			GetCertificate: certManager.GetCertificate,
-		},
-	}
-
-	go http.ListenAndServe(":80", certManager.HTTPHandler(nil))
-	log.Fatal(server.ListenAndServeTLS("", ""))
+	log.Fatal(http.ListenAndServe(":5000", handler))
 }
 
 func makeInit() {
