@@ -3,15 +3,27 @@ import tempfile
 import re
 import shutil
 import pandas as pd
-import tempfile
+import zipfile
+from contextlib import closing
+from zipfile import ZipFile, ZIP_DEFLATED
 import json as stdjson
 from ludwig import api
 from sanic import Sanic
 from sanic.response import json
 
 app = Sanic(name="COMPUTE_WORKER")
-
+app.config.REQUEST_MAX_SIZE = 2147483648 - 1
 models = {}
+
+def zipdir(basedir, archivename):
+    assert os.path.isdir(basedir)
+    with closing(ZipFile(archivename, "w", ZIP_DEFLATED)) as z:
+        for root, dirs, files in os.walk(basedir):
+            #NOTE: ignore empty directories
+            for fn in files:
+                absfn = os.path.join(root, fn)
+                zfn = absfn[len(basedir)+len(os.sep):] #XXX: relative path
+                z.write(absfn, zfn)
 
 def save_to_zip(input_filename, output_filename:str):
     shutil.make_archive(output_filename, 'zip', input_filename)
@@ -20,33 +32,38 @@ def save_to_zip(input_filename, output_filename:str):
 async def load(request, key):
     model = request.files.get('model')
     if not model:
-        return json({'status': 400, 'msg': "model not present"})
+        return json({'status': 400, 'msg': "model not present"}, status=400)
     
     metadata = request.files.get('metadata')
 
     if not metadata:
-        return json({'status': 400, 'msg': 'metadata not present'})
+        return json({'status': 400, 'msg': 'metadata not present'}, status=400)
     
     io_params = request.files.get('io_params')
 
     if not io_params:
-        return json({'status': 400, 'msg': "io_params not present"})
+        return json({'status': 400, 'msg': "io_params not present"},status=400)
     
     try:
-        os.mkdir(f"./{key}")
+        os.mkdir(f"./models/{key}")
+    
     except FileExistsError:
         pass
     
-    with open(f"./models/{key}/{model.name}", 'wb') as fmodel, open(f"./models/{key}/{metadata.name}", "wb") as fmeta, open(f"./models/{key}/{io_params.name}", "wb") as fio:
+    tempdirectory = tempfile.TemporaryDirectory()
+
+    with open(f"{tempdirectory.name}/{model.name}", 'wb') as fmodel, open(f"./models/{key}/{metadata.name}", "wb") as fmeta, open(f"./models/{key}/_{io_params.name}", "wb") as fio:
         fmodel.write(model.body)
         fmeta.write(metadata.body)
         fio.write(io_params.body)
 
-    io_params_json = stdjson.loads(io_params.body)
+    with zipfile.ZipFile(f"{tempdirectory.name}/{model.name}", 'r') as zip_ref:
+        zip_ref.extractall(f"./models/{key}")
 
-    print(io_params_json)
-    api.LudwigModel(config=io_params_json)
-    return json({'msg': 'Got both'})
+    load_models()
+
+    return json({'status': 200, 'msg': 'Got both'})
+
 
 @app.post('/train/<key>')
 async def train(request, key):
@@ -55,11 +72,11 @@ async def train(request, key):
 
     
     if not training_data:
-        return json({'status': 400, 'msg': ""})
+        return json({'status': 400, 'msg': ""},status=400)
     
 
     if not bio_params:
-        return json({'status': 400, 'msg': ""})
+        return json({'status': 400, 'msg': ""}, status=400)
     
     try:
         os.mkdir(f"./models/{key}")
@@ -81,8 +98,9 @@ async def train(request, key):
         fio.write(bio_params.body)
     
     directory = tempfile.TemporaryDirectory()
-    
-    save_to_zip(f"./models/{key}", f"./{directory.name}/out")
+    print("SAVED TO", directory.name)
+
+    zipdir(f"./models/{key}", f"./out.zip")
 
     return json({'status': 200, 'msg': "DONE"})
 
@@ -130,7 +148,7 @@ async def eval(request, key):
     model = model["model"]
 
     if not validate_params(request.json, io_params):
-        return json({'status': 400, 'msg': ''})
+        return json({'status': 400, 'msg': ''}, status=400)
     
     (df,_) = model.predict(request.json)
     return json({'status': 200, 'msg': df.to_dict()})
