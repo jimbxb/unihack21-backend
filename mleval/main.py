@@ -52,10 +52,8 @@ async def load(request, key):
     
     tempdirectory = tempfile.TemporaryDirectory()
 
-    with open(f"{tempdirectory.name}/{model.name}", 'wb') as fmodel, open(f"./models/{key}/{metadata.name}", "wb") as fmeta, open(f"./models/{key}/_{io_params.name}", "wb") as fio:
+    with open(f"{tempdirectory.name}/{model.name}", 'wb') as fmodel:
         fmodel.write(model.body)
-        fmeta.write(metadata.body)
-        fio.write(io_params.body)
 
     with zipfile.ZipFile(f"{tempdirectory.name}/{model.name}", 'r') as zip_ref:
         zip_ref.extractall(f"./models/{key}")
@@ -173,5 +171,5 @@ if __name__ == "__main__":
     # model = api.LudwigModel.load(location)
     # out = model.predict({"doc_text": ["football"]})
     # print(out)
-    load_models()
+    # load_models()
     app.run(host='0.0.0.0', port=3000)
