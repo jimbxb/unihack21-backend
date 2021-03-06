@@ -41,8 +41,8 @@ type ModelMetaData struct {
 	ID             int32         `json:"id"`
 	Name           string        `json:"name"`
 	Desc           string        `json:"description"`
-	InputFeatures  ModelFeatures `json:"input_features"`
-	OutputFeatures ModelFeatures `json:"output_features"`
+	InputFeatures  []ModelFeatures `json:"input_features"`
+	OutputFeatures []ModelFeatures `json:"output_features"`
 }
 
 type HostMetaData struct {
@@ -92,7 +92,7 @@ func uploadModelHandler(w http.ResponseWriter, r *http.Request) {
 	reqId := getRequestID(r)
 	data := ModelMap[reqId]
 
-	var res interface{}
+	var res map[string]interface{}
 
 	req, err := forwardModel(&data, r)
 	if err != nil {
@@ -107,6 +107,16 @@ func uploadModelHandler(w http.ResponseWriter, r *http.Request) {
 
 	client := &http.Client{}
 	ret, err := client.Do(req)
+
+	if err != nil {
+		w.WriteHeader(http.StatusInternalServerError)
+		json.NewEncoder(w).Encode(HostNotFound{
+			Message: fmt.Sprintf("error in request to server %v\n", err),
+			Host:    req.URL.String(),
+		})
+		fmt.Printf("error sending request: %v\n", err)
+		return
+	}
 
 	json.NewDecoder(ret.Body).Decode(res)
 
@@ -161,6 +171,9 @@ func forwardModel(data *ModelMetaData, r *http.Request) (*http.Request, error) {
 	tmpfile, _ := ioutil.TempFile(os.TempDir(), "tmp-")
 	tmpfile.Write(metadataFile)
 	defer tmpfile.Close()
+	_, _ = io.Copy(part, tmpfile)
+
+	part, err = writer.CreateFormFile("io_params", "io_params.json")
 	_, _ = io.Copy(part, tmpfile)
 
 	fmt.Printf("wrote json part\n")
