@@ -1,7 +1,7 @@
 version: "2"
 services:
   nginx-proxy:
-    image: jwilder/nginx-proxy
+    build: ./nginx-proxy
     command: "sh -c 'echo \"server_tokens off; client_max_body_size 512m;\" > /etc/nginx/conf.d/my_proxy.conf; forego start -r'"
     ports:
       - "80:80"
@@ -11,6 +11,7 @@ services:
       - "./nginx/html:/usr/share/nginx/html"
       - "./nginx/certs:/etc/nginx/certs"
       - "/var/run/docker.sock:/tmp/docker.sock:ro"
+      - "./default_location:/etc/nginx/vhost.d/default_location"
 
   letsencrypt:
     image: jrcs/letsencrypt-nginx-proxy-companion

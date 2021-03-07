@@ -1,0 +1,7 @@
+docker run --name worker -p 80:3000 kvoli/scalrio-worker:latest 
+
+docker run -d \
+    --name watchtower \
+    -e WATCHTOWER_POLL_INTERVAL="30" \
+    -v /var/run/docker.sock:/var/run/docker.sock \
+    containrrr/watchtower \
