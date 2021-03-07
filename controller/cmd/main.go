@@ -97,12 +97,12 @@ func uploadModelHandler(w http.ResponseWriter, r *http.Request) {
 	// check format
 
 	if err != nil {
-		w.WriteHeader(http.StatusInternalServerError)
+		w.WriteHeader(http.StatusBadRequest)
 		json.NewEncoder(w).Encode(HostNotFound{
 			Message: fmt.Sprintf("error in attempting to create request: %v\n", err),
-			Host:    req.URL.String(),
+			Host:    "",
 		})
-		log.Printf("error sending request: %v\n", err)
+		log.Printf("error creating request: %v\n", err)
 		return
 	}
 
@@ -153,6 +153,15 @@ func assignModelHost(data *ModelMetaData) (string, error){
 	return host.BFS, nil
 }
 
+func checkMultipartKeys(r *http.Request)  {
+	if err := r.ParseMultipartForm(1<<31 - 1); err != nil {
+		log.Printf("Multipart form data not found")
+	}
+
+	for k, v := range r.MultipartForm.File {
+		log.Printf("K|V Multipart Form %v:%v\n", k, v)
+	}
+}
 
 func forwardModel(r *http.Request) (*http.Request, *ModelMetaData, error) {
 	_ = r.ParseMultipartForm(1<<31 - 1)
@@ -247,7 +256,6 @@ func evalModelHandler(w http.ResponseWriter, r *http.Request) {
 	}
 }
 func trainModelHandler(w http.ResponseWriter, r *http.Request) {
-
 	_ = r.ParseMultipartForm(1<<31 - 1)
 
 	// create a new buffer to write the multipart form data into
@@ -258,6 +266,7 @@ func trainModelHandler(w http.ResponseWriter, r *http.Request) {
 	file, header, err := r.FormFile("training_data")
 	if err != nil {
 		w.WriteHeader(http.StatusBadRequest)
+		return
 	}
 	log.Printf("reading %s, size: %v\n", header.Filename, header.Size)
 	defer file.Close()
@@ -272,6 +281,7 @@ func trainModelHandler(w http.ResponseWriter, r *http.Request) {
 	file, header, err = r.FormFile("io_params")
 	if err != nil {
 		w.WriteHeader(http.StatusBadRequest)
+		return
 	}
 	log.Printf("reading %s, size: %v\n", header.Filename, header.Size)
 
@@ -349,6 +359,21 @@ func onFinished(w http.ResponseWriter, r *http.Request) {
 	Status[nd.ID] = true
 	return
 }
+func getStats(host *HostMetaData) []byte  {
+	uri := fmt.Sprintf("%s/stats", host.BFS)
+	r, _ := http.Get(uri)
+	ret, _ := ioutil.ReadAll(r.Body)
+	return ret
+}
+
+func getNodeStats(w http.ResponseWriter, r *http.Request) {
+	stats := make([]string, 0)
+	for _, v := range Hosts {
+		stats = append(stats, string(getStats(v)))
+	}
+	_ = json.NewEncoder(w).Encode(stats)
+
+}
 
 func getNodesHandler(w http.ResponseWriter, r *http.Request) {
 	json.NewEncoder(w).Encode(Hosts)
@@ -361,6 +386,7 @@ func handleRequests() {
 	router.HandleFunc("/eval/{id}", evalModelHandler).Methods("POST")
 	router.HandleFunc("/train", trainModelHandler).Methods("POST")
 	router.HandleFunc("/nodes", getNodesHandler).Methods("GET")
+	router.HandleFunc("/stats", getNodeStats).Methods("GET")
 	handler := cors.AllowAll().Handler(router)
 	log.Fatal(http.ListenAndServe(":5000", handler))
 }
